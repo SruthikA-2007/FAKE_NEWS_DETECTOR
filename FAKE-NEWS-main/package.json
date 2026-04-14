@@ -1,0 +1,13 @@
+{
+  "name": "fake-news-detector",
+  "version": "1.0.0",
+  "description": "Fake News Detector – run frontend + backend together",
+  "scripts": {
+    "dev": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"cyan,magenta\" \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "frontend": "cd frontend/veritas-dashboard-main && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
