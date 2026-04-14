@@ -76,6 +76,7 @@ def _score_evidence(
     sources: list[str] = []
     positive_signals = 0
     negative_signals = 0
+    neutral_signals = 0
 
     for result in fact_check_results:
         source_name = result.get("source", "Google Fact Check")
@@ -102,32 +103,45 @@ def _score_evidence(
         if url:
             sources.append(url)
         if snippet:
-            positive_signals += 1
+            lowered = snippet.lower()
+            if any(w in lowered for w in ["hoax", "fake", "false", "misinformation", "disputed", "conspiracy", "rumor", "debunked", "unverified"]):
+                negative_signals += 1
+            else:
+                neutral_signals += 1
 
     for result in news_results:
         title = result.get("title", "")
         url = result.get("url", "")
         source_name = result.get("source", "NewsAPI")
+        description = result.get("description", "")
         if title:
             sources.append(f"{source_name}: {title}")
         if url:
             sources.append(url)
         if title or url:
-            positive_signals += 1
+            lowered = f"{title} {description}".lower()
+            if any(w in lowered for w in ["hoax", "fake", "false", "misinformation", "disputed", "conspiracy", "rumor", "debunked", "unverified"]):
+                negative_signals += 1
+            else:
+                neutral_signals += 1
 
     confidence = 0.45
     verdict = "UNVERIFIED"
 
     if positive_signals > 0 and negative_signals == 0:
-        confidence = min(0.95, 0.55 + (positive_signals * 0.08))
+        confidence = min(0.95, 0.65 + (positive_signals * 0.1) + (neutral_signals * 0.02))
         verdict = "LIKELY TRUE"
-    elif negative_signals > 0 and positive_signals == 0:
-        confidence = min(0.95, 0.65 + (negative_signals * 0.08))
-        verdict = "SUSPICIOUS"
-    elif positive_signals > 0 and negative_signals > 0:
-        confidence = 0.55
-        verdict = "SUSPICIOUS"
-    elif positive_signals == 0 and negative_signals == 0:
+    elif negative_signals > 0:
+        if positive_signals > 0:
+            confidence = 0.55
+            verdict = "SUSPICIOUS"
+        else:
+            confidence = min(0.95, 0.65 + (negative_signals * 0.1))
+            verdict = "SUSPICIOUS"
+    elif neutral_signals > 0:
+        confidence = min(0.55, 0.40 + (neutral_signals * 0.05))
+        verdict = "UNVERIFIED"
+    else:
         confidence = 0.4
         verdict = "UNVERIFIED"
 
