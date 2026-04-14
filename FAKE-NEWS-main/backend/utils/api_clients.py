@@ -71,6 +71,7 @@ async def query_wikipedia(client: httpx.AsyncClient, query: str) -> list[dict[st
             "origin": "*",
             "srlimit": 3,
         },
+        headers={"User-Agent": "FakeNewsDetector/1.0 (contact@example.com)"}
     )
 
     results: list[dict[str, str]] = []

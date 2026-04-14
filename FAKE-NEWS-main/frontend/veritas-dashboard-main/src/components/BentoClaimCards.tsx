@@ -26,6 +26,7 @@ const BentoClaimCards = ({ claims }: BentoClaimCardsProps) => {
         {claims.map((claim, i) => {
           const config = verdictConfig[claim.verdict as keyof typeof verdictConfig] ?? verdictConfig.Unverified;
           const Icon = config.icon;
+          const confidencePerc = Math.round(claim.confidence * 100);
           return (
             <motion.div
               key={i}
@@ -46,11 +47,11 @@ const BentoClaimCards = ({ claims }: BentoClaimCardsProps) => {
                     <motion.div
                       className="h-full rounded-full bg-primary"
                       initial={{ width: 0 }}
-                      animate={{ width: `${claim.confidence}%` }}
+                      animate={{ width: `${confidencePerc}%` }}
                       transition={{ delay: i * 0.1 + 0.3, duration: 0.5 }}
                     />
                   </div>
-                  <span className="text-xs text-muted-foreground">{claim.confidence}%</span>
+                  <span className="text-xs text-muted-foreground">{confidencePerc}%</span>
                 </div>
               </div>
             </motion.div>
