@@ -14,9 +14,16 @@ export interface AnalyzeClaim {
   sources: string[];
 }
 
+export interface Entity {
+  text: string;
+  type: "person" | "date" | "money" | "org";
+}
+
 export interface AnalyzeResponse {
   claims: AnalyzeClaim[];
   overall_score: number;
+  article_text: string;
+  entities: Entity[];
 }
 
 const getFriendlyErrorMessage = (error: unknown) => {

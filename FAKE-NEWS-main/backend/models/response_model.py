@@ -16,3 +16,5 @@ class ClaimResult(BaseModel):
 class AnalysisResponse(BaseModel):
     claims: list[ClaimResult] = Field(default_factory=list)
     overall_score: int = Field(ge=0, le=100)
+    article_text: str = ""
+    entities: list[dict[str, str]] = Field(default_factory=list)

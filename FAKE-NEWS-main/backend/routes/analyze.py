@@ -29,6 +29,7 @@ async def analyze(request: AnalyzeRequest) -> AnalysisResponse:
         if not extracted_claims:
             extracted_claims = [article_text.strip()]
 
+        article_entities = await extract_entities(article_text)
         entities_per_claim = await asyncio.gather(*(extract_entities(claim) for claim in extracted_claims))
         verification_results = await asyncio.gather(
             *(verify_claim(claim, entities) for claim, entities in zip(extracted_claims, entities_per_claim))
@@ -45,7 +46,12 @@ async def analyze(request: AnalyzeRequest) -> AnalysisResponse:
         ]
 
         overall_score = calculate_overall_score(claim_results)
-        return AnalysisResponse(claims=claim_results, overall_score=overall_score)
+        return AnalysisResponse(
+            claims=claim_results,
+            overall_score=overall_score,
+            article_text=article_text.strip(),
+            entities=article_entities,
+        )
     except HTTPException:
         raise
     except Exception as exc:

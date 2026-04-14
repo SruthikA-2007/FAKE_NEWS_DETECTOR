@@ -10,6 +10,15 @@ logger = logging.getLogger(__name__)
 
 ENTITY_LABELS = {"PERSON", "ORG", "DATE", "MONEY", "GPE", "LOC"}
 
+LABEL_MAP = {
+    "PERSON": "person",
+    "ORG": "org",
+    "DATE": "date",
+    "MONEY": "money",
+    "GPE": "org",
+    "LOC": "org"
+}
+
 
 @lru_cache(maxsize=1)
 def _load_model():
@@ -20,10 +29,10 @@ def _load_model():
         return spacy.blank("en")
 
 
-def _extract_entities_sync(text: str) -> list[str]:
+def _extract_entities_sync(text: str) -> list[dict[str, str]]:
     nlp = _load_model()
     doc = nlp(text)
-    entities: list[str] = []
+    entities: list[dict[str, str]] = []
     seen: set[str] = set()
 
     for entity in doc.ents:
@@ -36,12 +45,15 @@ def _extract_entities_sync(text: str) -> list[str]:
         if key in seen:
             continue
         seen.add(key)
-        entities.append(normalized)
+        entities.append({
+            "text": normalized,
+            "type": LABEL_MAP.get(entity.label_, "org")
+        })
 
     return entities
 
 
-async def extract_entities(text: str) -> list[str]:
+async def extract_entities(text: str) -> list[dict[str, str]]:
     if not text.strip():
         return []
     return await asyncio.to_thread(_extract_entities_sync, text)

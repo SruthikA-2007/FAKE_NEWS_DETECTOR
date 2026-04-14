@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
-interface Entity {
-  text: string;
-  type: "person" | "date" | "money" | "org";
-}
+import { type Entity } from "@/services/api";
 
 const entityColors: Record<Entity["type"], string> = {
   person: "bg-rose-900/60",
@@ -20,20 +17,12 @@ const entityLabels: Record<Entity["type"], string> = {
   org: "Organization",
 };
 
-const sampleText = `According to Dr. James Whitfield, the study conducted on January 15, 2024 by the International Coffee Cartel revealed that a $2.4 million investment led to the discovery. Lead researcher Maria Santos confirmed that the 12 participants each received $500 for their weekend-long participation. The findings were later disputed by the World Health Organization on February 3, 2024.`;
+interface EntityHighlighterProps {
+  text?: string;
+  entities?: Entity[];
+}
 
-const entities: Entity[] = [
-  { text: "Dr. James Whitfield", type: "person" },
-  { text: "January 15, 2024", type: "date" },
-  { text: "International Coffee Cartel", type: "org" },
-  { text: "$2.4 million", type: "money" },
-  { text: "Maria Santos", type: "person" },
-  { text: "$500", type: "money" },
-  { text: "World Health Organization", type: "org" },
-  { text: "February 3, 2024", type: "date" },
-];
-
-const EntityHighlighter = () => {
+const EntityHighlighter = ({ text = "", entities = [] }: EntityHighlighterProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -47,7 +36,8 @@ const EntityHighlighter = () => {
   }, []);
 
   const renderText = () => {
-    let remaining = sampleText;
+    if (!text) return null;
+    let remaining = text;
     const parts: React.ReactNode[] = [];
     let key = 0;
 

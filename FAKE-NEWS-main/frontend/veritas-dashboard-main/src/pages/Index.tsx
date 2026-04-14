@@ -7,7 +7,7 @@ import PipelineLoader from "@/components/PipelineLoader";
 import CredibilityGauge from "@/components/CredibilityGauge";
 import BentoClaimCards from "@/components/BentoClaimCards";
 import EntityHighlighter from "@/components/EntityHighlighter";
-import { analyzeContent, type AnalyzeClaim, type AnalyzeInputType } from "@/services/api";
+import { analyzeContent, type AnalyzeClaim, type AnalyzeInputType, type Entity } from "@/services/api";
 
 type Phase = "input" | "loading" | "results";
 
@@ -22,6 +22,8 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const [overallScore, setOverallScore] = useState<number>(0);
   const [claimsData, setClaimsData] = useState<AnalyzeClaim[]>([]);
+  const [articleText, setArticleText] = useState<string>("");
+  const [entitiesData, setEntitiesData] = useState<Entity[]>([]);
 
   const handleAnalyze = useCallback(async (payload: AnalyzePayload) => {
     setError(null);
@@ -32,6 +34,8 @@ const Index = () => {
       const response = await analyzeContent(payload.type, payload.contentOrFile);
       setOverallScore(response.overall_score);
       setClaimsData(response.claims);
+      setArticleText(response.article_text);
+      setEntitiesData(response.entities);
       setPhase("results");
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Analysis failed.";
@@ -48,6 +52,8 @@ const Index = () => {
     setIsLoading(false);
     setOverallScore(0);
     setClaimsData([]);
+    setArticleText("");
+    setEntitiesData([]);
   }, []);
 
   return (
@@ -114,7 +120,7 @@ const Index = () => {
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <CredibilityGauge score={overallScore} />
-                <EntityHighlighter />
+                <EntityHighlighter text={articleText} entities={entitiesData} />
               </div>
               <BentoClaimCards claims={claimsData} />
             </motion.div>

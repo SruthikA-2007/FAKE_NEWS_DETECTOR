@@ -17,8 +17,8 @@ class VerificationResult:
     sources: list[str] = field(default_factory=list)
 
 
-def _normalize_query(claim: str, entities: list[str]) -> str:
-    entity_fragment = " ".join(entities[:3]).strip()
+def _normalize_query(claim: str, entities: list[dict[str, str]]) -> str:
+    entity_fragment = " ".join(e["text"] for e in entities[:3]).strip()
     candidate = entity_fragment or claim
     return " ".join(candidate.split())[:250]
 
