@@ -1,0 +1,158 @@
+Here is the complete, unified Master Specification Document for the backend. You can hand this directly to your backend development team to ensure they build a highly scalable, async-first API that seamlessly connects with the frontend dashboard.
+
+***
+
+# Backend Development Specification: AI News Verification API
+
+## 1. Project Overview & Tech Stack
+**Goal:** Build a high-performance, asynchronous REST API for the Fake News Detection System. The backend will process raw inputs (Text, URLs, Images), execute a multi-stage AI pipeline, and return a structured credibility score to the React frontend.
+
+**Core Technologies:**
+* **Framework:** FastAPI (for high-speed async endpoints)
+* **Language:** Python 3.10+
+* **LLM Engine:** Google Gemini (`google-generativeai`)
+* **NLP / NER:** spaCy (`en_core_web_sm`)
+* **HTTP Client:** `httpx` (for async parallel API calls)
+* **Data Validation:** Pydantic
+* **Web Scraping:** `newspaper3k`
+
+---
+
+## 2. Architecture & Folder Structure
+The application must follow a modular, service-oriented architecture.
+
+```text
+backend/
+├── main.py                    # Application entry point & CORS
+├── config.py                  # Environment variable management
+├── requirements.txt           # Python dependencies
+├── routes/
+│   └── analyze.py             # Main pipeline controller (POST /analyze)
+├── services/
+│   ├── article_parser.py      # Handles URL scraping (newspaper3k)
+│   ├── claim_extractor.py     # Gemini prompt for claim splitting
+│   ├── ner_processor.py       # spaCy entity extraction
+│   ├── verifier.py            # Async multi-source fact-checking
+│   └── scorer.py              # Credibility math & weighting
+├── models/
+│   ├── request_model.py       # Pydantic schemas for input
+│   └── response_model.py      # Pydantic schemas for output
+└── utils/
+    └── api_clients.py         # Wrappers for external APIs
+```
+
+---
+
+## 3. Data Models (Pydantic)
+
+### Request Schema (`models/request_model.py`)
+The API must accept three types of input formats to support the frontend's universal input switcher.
+
+```python
+from pydantic import BaseModel
+from typing import Literal
+
+class AnalyzeRequest(BaseModel):
+    type: Literal["text", "url", "image"]
+    content: str  # The raw text, the URL, or base64/file path for images
+```
+
+### Response Schema (`models/response_model.py`)
+This exact structure must be returned to the frontend to render the Credibility Gauge and Claim Cards.
+
+```python
+from pydantic import BaseModel
+from typing import List
+
+class ClaimResult(BaseModel):
+    text: str
+    verdict: Literal["LIKELY TRUE", "UNVERIFIED", "SUSPICIOUS"]
+    confidence: float  # e.g., 0.72
+    sources: List[str] # e.g., ["Wikipedia", "Google Fact Check"]
+
+class AnalysisResponse(BaseModel):
+    claims: List[ClaimResult]
+    overall_score: int # 0 to 100
+```
+
+---
+
+## 4. Pipeline Services Specification
+
+### Stage 1: Input Processing (`services/article_parser.py`)
+* **Purpose:** Standardize the input into raw text.
+* **Logic:** If `type == "url"`, use `newspaper3k` to download the HTML, extract the main body text, and strip out ads/menus. If `type == "image"`, pass through an OCR utility (like Tesseract/Google Vision) to extract text.
+
+### Stage 2: Claim Extraction (`services/claim_extractor.py`)
+* **Purpose:** Break a large article into independent, verifiable statements.
+* **Logic:** Send the parsed text to the Google Gemini API.
+* **Prompt Directive:** Instruct Gemini to extract *only* factual claims, ignore opinions, and return the response strictly as a JSON array of strings.
+
+### Stage 3: Named Entity Recognition (`services/ner_processor.py`)
+* **Purpose:** Identify key actors, numbers, and dates to improve search queries.
+* **Logic:** Run each extracted claim through `spaCy` (`en_core_web_sm`).
+* **Targets:** Extract `PERSON`, `ORG`, `DATE`, `MONEY`, and `LOCATION`. Attach these entities to their respective claims.
+
+### Stage 4: Multi-API Verification (`services/verifier.py` & `utils/api_clients.py`)
+* **Purpose:** Cross-reference the claims against authoritative databases.
+* **Logic:** This **must** be asynchronous. Use `asyncio.gather` and `httpx` to ping APIs simultaneously to prevent timeouts.
+* **Sources:**
+    1.  **Google Fact Check API:** Direct matches for known fake news.
+    2.  **Wikipedia API:** Background context for entities.
+    3.  **NewsAPI:** Cross-referencing against recent publications.
+
+### Stage 5: Credibility Scoring (`services/scorer.py`)
+* **Purpose:** Calculate the final dashboard metric.
+* **Logic:** Aggregate the confidence scores from the Verification stage.
+    * Total the confidence scores (e.g., Claim 1: 0.80, Claim 2: 0.30).
+    * Calculate the average.
+    * Multiply by 100 and round to the nearest integer to generate the `overall_score` (e.g., 55).
+
+---
+
+## 5. Main Route Controller (`routes/analyze.py`)
+This file orchestrates the services. It must be clean and read like a straightforward pipeline.
+
+```python
+from fastapi import APIRouter
+from models.request_model import AnalyzeRequest
+from models.response_model import AnalysisResponse
+from services.article_parser import parse_input
+from services.claim_extractor import extract_claims
+from services.ner_processor import extract_entities
+from services.verifier import verify_claims
+from services.scorer import calculate_score
+
+router = APIRouter()
+
+@router.post("/analyze", response_model=AnalysisResponse)
+async def analyze_article(request: AnalyzeRequest):
+    # 1. Parse Input
+    article_text = await parse_input(request.type, request.content)
+    
+    # 2. Extract Claims
+    claims = await extract_claims(article_text)
+    
+    # 3. Extract Entities (NER)
+    entities = extract_entities(claims)
+    
+    # 4. Verify Claims (Parallel Async)
+    verification_results = await verify_claims(claims, entities)
+    
+    # 5. Score
+    final_score = calculate_score(verification_results)
+    
+    return {
+        "claims": verification_results,
+        "overall_score": final_score
+    }
+```
+
+---
+
+## 6. Environment & Configuration (`config.py`)
+Use `python-dotenv` to manage secrets. Ensure a `.env.example` file is created for the team.
+* `GEMINI_API_KEY`
+* `FACTCHECK_API_KEY`
+* `NEWS_API_KEY`
+* `CORS_ORIGINS` (Set to `http://localhost:5173` for Vite React dev server)

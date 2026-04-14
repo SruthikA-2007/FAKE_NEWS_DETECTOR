@@ -1,0 +1,333 @@
+Great choice 👍 Using **React** for the frontend works very well for your MVP because your app is essentially an **interactive dashboard that shows AI analysis results**.
+
+Below is the **optimized tech stack specifically using React**, considering both **user input flow and background AI processing**.
+
+---
+
+# 1. Overall System Architecture
+
+Your system will have **two main parts**:
+
+1️⃣ **Frontend (React UI)**
+2️⃣ **Backend (AI processing pipeline)**
+
+Pipeline flow:
+
+```text
+User enters article / URL
+        ↓
+React Frontend
+        ↓
+FastAPI Backend
+        ↓
+Gemini Claim Extraction
+        ↓
+spaCy Entity Extraction
+        ↓
+Fact-check APIs
+        ↓
+Credibility Score Engine
+        ↓
+Results returned to React UI
+```
+
+---
+
+# 2. Frontend Stack (React)
+
+Main library:
+
+**React**
+
+Why React fits your project:
+
+* Dynamic UI updates for claim results
+* Easy API integration
+* Component-based architecture
+* Perfect for dashboard-like applications
+
+---
+
+## Styling
+
+Use:
+
+**Tailwind CSS**
+
+Benefits:
+
+* Very fast UI development
+* Clean design for hackathon demos
+* Responsive layout
+
+---
+
+## Charts / Visualization
+
+Use:
+
+**Recharts**
+
+For:
+
+* credibility meter
+* confidence bars
+* result statistics
+
+---
+
+## HTTP Requests
+
+Use:
+
+**Axios**
+
+Purpose:
+
+* send article text to backend
+* receive analysis results
+
+Example:
+
+```javascript
+axios.post("/analyze", { article: text })
+```
+
+---
+
+# 3. Backend Stack
+
+Framework:
+
+**FastAPI**
+
+Why FastAPI:
+
+* very fast APIs
+* async processing
+* great for AI pipelines
+* automatic documentation
+
+Example endpoint:
+
+```
+POST /analyze
+```
+
+Input:
+
+```json
+{
+ "article": "text of the article"
+}
+```
+
+Output:
+
+```json
+{
+ "claims": [...],
+ "credibility_score": 47
+}
+```
+
+---
+
+# 4. AI Model
+
+Use:
+
+**Google Gemini API**
+
+Recommended model:
+
+**Gemini 1.5 Flash**
+
+Purpose:
+
+* extract claims from article
+
+Example transformation:
+
+```
+Article
+↓
+List of claims
+```
+
+---
+
+# 5. NLP Processing
+
+Use:
+
+**spaCy**
+
+Task:
+
+* Named Entity Recognition (NER)
+
+Extract entities like:
+
+* people
+* organizations
+* dates
+* money
+* locations
+
+Example:
+
+```
+₹5000 Cr → MONEY
+March 10 → DATE
+```
+
+---
+
+# 6. Fact Verification Sources
+
+Use multiple sources to verify claims.
+
+### Source 1
+
+**Google Fact Check Tools API**
+
+Purpose:
+Find existing fact checks.
+
+---
+
+### Source 2
+
+**Wikipedia API**
+
+Purpose:
+Verify factual information.
+
+---
+
+### Optional
+
+**NewsAPI**
+
+Purpose:
+Check recent news confirmation.
+
+---
+
+# 7. Credibility Scoring Engine
+
+This will be **custom Python logic**.
+
+Example scoring:
+
+```text
+Claim Score = FactCheck + Wikipedia + News
+```
+
+Final output:
+
+```
+Claim 1 → Likely True (0.72)
+Claim 2 → Unverified (0.41)
+Claim 3 → Suspicious (0.29)
+
+Overall Credibility → 47%
+```
+
+---
+
+# 8. React UI Components
+
+Your React app can have these components:
+
+```
+App
+ ├── ArticleInput
+ ├── AnalyzeButton
+ ├── ClaimCard
+ ├── CredibilityGauge
+ ├── EntityHighlights
+ └── ResultDashboard
+```
+
+---
+
+### Example Claim Card
+
+```
+Claim: "Package worth ₹5000 Cr"
+
+Verdict: UNVERIFIED
+Confidence: 41%
+Source: Wikipedia
+```
+
+Color coding:
+
+🟢 True
+🟡 Unverified
+🔴 Suspicious
+
+---
+
+# 9. Recommended Folder Structure
+
+### Frontend (React)
+
+```
+frontend
+ ├── src
+ │   ├── components
+ │   │    ├── ArticleInput.jsx
+ │   │    ├── ClaimCard.jsx
+ │   │    ├── CredibilityGauge.jsx
+ │   ├── pages
+ │   ├── services
+ │   │    └── api.js
+ │   └── App.jsx
+```
+
+---
+
+### Backend (FastAPI)
+
+```
+backend
+ ├── main.py
+ ├── services
+ │    ├── claim_extractor.py
+ │    ├── ner_processor.py
+ │    ├── verifier.py
+ │    └── scorer.py
+ └── utils
+```
+
+---
+
+# 10. Final Tech Stack
+
+| Layer          | Technology            |
+| -------------- | --------------------- |
+| Frontend       | React                 |
+| Styling        | Tailwind CSS          |
+| Charts         | Recharts              |
+| API Calls      | Axios                 |
+| Backend        | FastAPI               |
+| AI Model       | Gemini API            |
+| NLP            | spaCy                 |
+| Fact Check     | Google Fact Check API |
+| Knowledge Base | Wikipedia API         |
+| News Source    | NewsAPI               |
+
+---
+
+# 11. Why This Stack Is Best for Your Project
+
+This stack works well because:
+
+✔ React handles **dynamic UI updates**
+✔ FastAPI handles **AI pipelines efficiently**
+✔ Gemini provides **accurate claim extraction**
+✔ spaCy handles **fast NLP entity detection**
+✔ APIs provide **reliable fact verification**

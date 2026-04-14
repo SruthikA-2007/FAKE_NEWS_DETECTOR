@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 210 20% 88%;
+
+    --card: 0 0% 7%;
+    --card-foreground: 210 20% 88%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 210 20% 88%;
+
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 210 20% 88%;
+
+    --muted: 0 0% 14%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 0 60% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 0 72% 51%;
+
+    --radius: 0.75rem;
+
+    --glass-bg: 0 0% 5% / 0.5;
+    --glass-border: 0 30% 25%;
+    --glow-red: 0 72% 51% / 0.15;
+
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 210 20% 88%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 210 20% 88%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 0 72% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-card/50 backdrop-blur-md border border-glass-border rounded-xl;
+  }
+  .glass-hover {
+    @apply glass transition-all duration-300 hover:border-primary/40 hover:shadow-[0_0_20px_hsl(var(--glow-red))];
+  }
+  .text-gradient-red {
+    @apply bg-gradient-to-r from-rose-400 to-red-600 bg-clip-text text-transparent;
+  }
+}

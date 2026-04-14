@@ -1,0 +1,121 @@
+Frontend Development Specification: AI News Verification Dashboard
+1. Project Overview & Tech Stack
+Goal: Build a "Calm & Premium" real-time analysis dashboard for a Fake News Detection AI. The interface must prioritize visual impact, clarity, and trust. It should feel like a high-end production tool, not a prototype.
+
+Core Technologies:
+
+Framework: React (Vite recommended)
+
+Styling: Tailwind CSS
+
+Animations: Framer Motion (Crucial for micro-interactions)
+
+Icons: Lucide React
+
+Data Fetching: Axios or Fetch API
+
+2. Design System & Aesthetic
+The UI must be responsive, fluid, and utilize "ReactBits" style micro-interactions.
+
+Theme: Minimalist Dark Mode.
+
+Background: Deep focus slate-950 with a subtle, slow-moving mesh gradient (using Framer Motion) to create a calm atmosphere. Avoid static, dead backgrounds.
+
+Surfaces: Glassmorphism. All cards and containers should be bg-slate-900/50 with backdrop-blur-md and a thin slate-800 border.
+
+Typography: Inter or Geist. Use tracking-tight for headings and leading-relaxed for body text.
+
+Color Palette:
+
+Primary Action/Focus: indigo-500
+
+Safe/Verified: emerald-400
+
+Warning/Unverified: amber-400
+
+Danger/Suspicious: rose-400
+
+Text: slate-200
+
+3. Architecture & Folder Structure
+Keep the component tree modular to separate input logic from result visualization.
+
+Plaintext
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── layout/
+│   │   │   └── Navbar.jsx           (Glass effect, System status indicator)
+│   │   ├── input/
+│   │   │   ├── InputSwitcher.jsx    (Toggle between Text/URL/Image)
+│   │   │   ├── ArticleTextInput.jsx
+│   │   │   ├── UrlInput.jsx
+│   │   │   └── ImageUploader.jsx    (Drag & Drop with preview)
+│   │   ├── analysis/
+│   │   │   └── ProcessingPipeline.jsx (Staggered loading animation)
+│   │   └── dashboard/
+│   │       ├── CredibilityGauge.jsx (Spring-physics SVG)
+│   │       ├── ClaimList.jsx        (Bento grid layout)
+│   │       ├── ClaimCard.jsx        (Hover lift, soft glows)
+│   │       └── EntityHighlighter.jsx(Scroll-triggered highlights)
+│   ├── hooks/
+│   │   └── useSequence.js           (Custom hook for staggered animations)
+│   ├── services/
+│   │   └── api.js                   (Handles POST /analyze)
+│   └── App.jsx                      (Main state orchestrator)
+4. Component Specifications & Requirements
+A. The Universal Input Switcher
+Purpose: Handle Article Text, URLs, and Image uploads seamlessly.
+
+Interaction: Create a segmented control slider (Text | URL | Image). Use Framer Motion's layoutId so the active background "pill" slides smoothly behind the selected option.
+
+Views: Use AnimatePresence so switching between inputs triggers a smooth lateral slide-and-fade.
+
+Image Uploader: Implement a dropzone. When a file is dragged over, apply a soft pulse animation. Always show an image preview before the user clicks analyze.
+
+B. The Staggered Pipeline Loader
+Purpose: Replace standard loading spinners to build "demo tension" and visualize the backend's work.
+
+Visuals: A vertical list of stages (e.g., "Extracting claims...", "Identifying entities...", "Verifying sources...").
+
+Animation: As the backend processes, use a "Staggered Text Reveal" effect. When a stage completes, fade in a green checkmark and pop the next stage text into view. Include a glowing progress bar at the bottom.
+
+C. The Credibility Gauge (Main Visual)
+Purpose: The immediate "Wow" factor and primary result indicator.
+
+Shape: A custom semi-circle (arch) SVG gauge.
+
+Animation: It must receive a score prop (0-100). Animate the needle (or stroke-dasharray) from 0 to the final score using Framer Motion spring physics (type: "spring", stiffness: 60, damping: 20). The needle should bounce slightly when it lands.
+
+Dynamic UI: The center number and sub-label must change color and text based on the score (e.g., 0-40 Red "Suspicious", 41-70 Yellow "Mixed", 71-100 Green "Likely True").
+
+D. Bento Claim Cards
+Purpose: Display granular sentence-by-sentence analysis.
+
+Layout: CSS Grid (Bento style).
+
+Entry Animation: Use a staggered fade-in (staggerChildren: 0.1) so cards pop into existence one by one.
+
+Interactivity: Add a whileHover={{ y: -5 }} lift effect to each card. The borders should slightly brighten on hover (Spotlight effect).
+
+Styling: Verdicts should use soft-colored glowing badges (e.g., bg-emerald-500/20 text-emerald-400 for True) rather than harsh solid blocks. Include the source favicon at the bottom of the card.
+
+E. Entity Highlighter
+Purpose: Show transparency in how the AI read the article.
+
+Visuals: Display the original text, but wrap extracted entities (Dates, Money, Persons) in styled spans.
+
+Styling: Persons = soft blue, Money = soft gold, Dates = soft purple.
+
+Animation: Use an Intersection Observer. When the user scrolls down to this section, the highlight background colors should "draw" themselves in from left to right (width 0% to 100%), mimicking a digital highlighter marker.
+
+5. API Payload Standard
+The frontend will communicate with a single backend endpoint to keep things clean.
+
+Endpoint: POST /analyze
+
+For Text: { "type": "text", "content": "article..." }
+
+For URL: { "type": "url", "content": "https://..." }
+
+For Image: Send as multipart/form-data with type=image and file=<blob>.
