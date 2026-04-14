@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-Verdict = Literal["LIKELY TRUE", "UNVERIFIED", "SUSPICIOUS"]
+Verdict = Literal["True", "False", "Unverified", "Misleading"]
 
 
 class ClaimResult(BaseModel):

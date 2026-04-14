@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import dataclass, field
 
 import httpx
@@ -25,32 +26,34 @@ def _normalize_query(claim: str, entities: list[dict[str, str]]) -> str:
 
 def _contains_positive_rating(text: str) -> bool:
     lowered = text.lower()
-    return any(
-        phrase in lowered
-        for phrase in (
-            "true",
-            "mostly true",
-            "correct",
-            "accurate",
-            "supported",
-            "verified",
-        )
-    )
+    # Use word boundaries to avoid matching "true" in "untrue"
+    positive_patterns = [
+        r"\btrue\b",
+        r"\bmostly true\b",
+        r"\bcorrect\b",
+        r"\baccurate\b",
+        r"\bsupported\b",
+        r"\bverified\b",
+    ]
+    return any(re.search(pattern, lowered) for pattern in positive_patterns)
 
 
 def _contains_negative_rating(text: str) -> bool:
     lowered = text.lower()
-    return any(
-        phrase in lowered
-        for phrase in (
-            "false",
-            "mostly false",
-            "misleading",
-            "pants on fire",
-            "fabricated",
-            "unsubstantiated",
-        )
-    )
+    negative_patterns = [
+        r"\bfalse\b",
+        r"\bmostly false\b",
+        r"\bmisleading\b",
+        r"\bpants on fire\b",
+        r"\bfabricated\b",
+        r"\bunsubstantiated\b",
+        r"\buntrue\b",
+        r"\binaccurate\b",
+        r"\bwrong\b",
+        r"\bhoax\b",
+        r"\bfake\b",
+    ]
+    return any(re.search(pattern, lowered) for pattern in negative_patterns)
 
 
 def _deduplicate_sources(sources: list[str]) -> list[str]:
@@ -125,29 +128,34 @@ def _score_evidence(
             else:
                 neutral_signals += 1
 
-    confidence = 0.45
-    verdict = "UNVERIFIED"
+    evidence_strength = 0.45
+    verdict: Verdict = "Unverified"
 
     if positive_signals > 0 and negative_signals == 0:
-        confidence = min(0.95, 0.65 + (positive_signals * 0.1) + (neutral_signals * 0.02))
-        verdict = "LIKELY TRUE"
+        # High signals mean high truthfulness
+        evidence_strength = min(0.95, 0.65 + (positive_signals * 0.1) + (neutral_signals * 0.02))
+        verdict = "True"
     elif negative_signals > 0:
         if positive_signals > 0:
-            confidence = 0.55
-            verdict = "SUSPICIOUS"
+            # Mixed signals
+            evidence_strength = 0.45
+            verdict = "Misleading"
         else:
-            confidence = min(0.95, 0.65 + (negative_signals * 0.1))
-            verdict = "SUSPICIOUS"
+            # Negative signals mean low truthfulness
+            # Convert strength of negative evidence to a low truth score
+            neg_strength = min(0.95, 0.65 + (negative_signals * 0.1))
+            evidence_strength = 1.0 - neg_strength
+            verdict = "False"
     elif neutral_signals > 0:
-        confidence = min(0.55, 0.40 + (neutral_signals * 0.05))
-        verdict = "UNVERIFIED"
+        evidence_strength = min(0.55, 0.40 + (neutral_signals * 0.05))
+        verdict = "Unverified"
     else:
-        confidence = 0.4
-        verdict = "UNVERIFIED"
+        evidence_strength = 0.4
+        verdict = "Unverified"
 
     return VerificationResult(
         verdict=verdict,
-        confidence=max(0.0, min(confidence, 0.99)),
+        confidence=max(0.0, min(evidence_strength, 0.99)),
         sources=_deduplicate_sources(sources),
     )
 

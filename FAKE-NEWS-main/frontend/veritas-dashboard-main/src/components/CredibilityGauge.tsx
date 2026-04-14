@@ -26,7 +26,7 @@ const CredibilityGauge = ({ score }: CredibilityGaugeProps) => {
 
   const needleEnd = arcPath(scoreAngle);
 
-  const label = score < 30 ? "Likely False" : score < 60 ? "Uncertain" : "Likely True";
+  const label = score < 35 ? "False" : score < 65 ? "Unverified" : "True";
   const labelColor = score < 30 ? "text-red-400" : score < 60 ? "text-amber-400" : "text-emerald-400";
 
   return (
