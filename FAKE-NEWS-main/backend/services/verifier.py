@@ -204,23 +204,17 @@ def _score_evidence(
         title = result.get("title", "")
         rating = result.get("rating", "")
         url = result.get("url", "")
-<<<<<<< HEAD
         credibility_weight = _get_source_credibility_weight(source_name)
-        
+
         if title:
             sources.append(f"{source_name}: {title}")
         elif rating:
             sources.append(f"{source_name}: {rating}")
         if url:
             sources.append(url)
-        
+
         total_sources += 1
-=======
-        if title: sources.append(f"{source_name}: {title}")
-        elif rating: sources.append(f"{source_name}: {rating}")
-        if url: sources.append(url)
->>>>>>> 50d290bacd7b4057fd14f570fbfe113d99d45843
-        
+
         if _contains_positive_rating(title) or _contains_positive_rating(rating):
             positive_signals += int(2 * credibility_weight)
         if _contains_negative_rating(title) or _contains_negative_rating(rating):
@@ -231,33 +225,21 @@ def _score_evidence(
         title = result.get("title", "")
         url = result.get("url", "")
         snippet = result.get("snippet", "")
-<<<<<<< HEAD
         credibility_weight = _get_source_credibility_weight("Wikipedia")
-        
+
         if title:
             sources.append(f"Wikipedia: {title}")
         if url:
             sources.append(url)
-        
+
         total_sources += 1
-        
+
         if snippet:
             lowered = snippet.lower()
             misinformation_indicators = _detect_misinformation_indicators(snippet)
-            
+
             if any(w in lowered for w in ["hoax", "fake", "false", "misinformation", "disputed", "conspiracy", "rumor", "debunked", "unverified"]):
                 negative_signals += int((1 + misinformation_indicators * 0.5) * credibility_weight)
-=======
-        if title: sources.append(f"Wikipedia: {title}")
-        if url: sources.append(url)
-        
-        if snippet:
-            lowered = snippet.lower()
-            if any(w in lowered for w in ["hoax", "fake", "false", "misinformation", "disputed", "conspiracy", "rumor", "debunked"]):
-                negative_signals += 1
-            elif any(w in lowered for w in ["confirmed", "official", "established", "verified"]):
-                positive_signals += 1
->>>>>>> 50d290bacd7b4057fd14f570fbfe113d99d45843
             else:
                 neutral_signals += int(1 * credibility_weight)
 
@@ -267,20 +249,19 @@ def _score_evidence(
         url = result.get("url", "")
         source_name = result.get("source", "NewsAPI")
         description = result.get("description", "")
-<<<<<<< HEAD
         credibility_weight = _get_source_credibility_weight(source_name)
-        
+
         if title:
             sources.append(f"{source_name}: {title}")
         if url:
             sources.append(url)
-        
+
         total_sources += 1
-        
+
         if title or url:
             lowered = f"{title} {description}".lower()
             misinformation_indicators = _detect_misinformation_indicators(lowered)
-            
+
             if any(w in lowered for w in ["hoax", "fake", "false", "misinformation", "disputed", "conspiracy", "rumor", "debunked", "unverified"]):
                 negative_signals += int((1 + misinformation_indicators * 0.5) * credibility_weight)
             else:
@@ -288,27 +269,11 @@ def _score_evidence(
 
     # New optimized scoring logic
     evidence_strength = 0.25  # Default: pessimistic for unverified claims
-=======
-        if title: sources.append(f"{source_name}: {title}")
-        if url: sources.append(url)
-        
-        lowered = f"{title} {description}".lower()
-        if any(w in lowered for w in ["hoax", "fake", "false", "misinformation", "disputed", "conspiracy", "rumor", "debunked"]):
-            negative_signals += 1
-        elif any(w in lowered for w in ["verified", "confirmed", "official"]):
-            positive_signals += 1
-        else:
-            neutral_signals += 1
-
-    # Heuristic Logic
-    evidence_strength = 0.45
->>>>>>> 50d290bacd7b4057fd14f570fbfe113d99d45843
     verdict: Verdict = "Unverified"
     
     # Apply source count multiplier (more sources = higher confidence)
     source_multiplier = min(1.2, 0.8 + (total_sources * 0.1))
 
-<<<<<<< HEAD
     if positive_signals > 0 and negative_signals == 0:
         # All positive evidence: mark as True
         evidence_strength = min(0.95, (0.70 + (positive_signals * 0.08) + (neutral_signals * 0.02)) * source_multiplier)
@@ -326,17 +291,6 @@ def _score_evidence(
     elif neutral_signals > 0:
         # Only neutral signals: slightly above default unverified
         evidence_strength = min(0.45, 0.25 + (neutral_signals * 0.04))
-=======
-    if positive_signals > negative_signals:
-        evidence_strength = min(0.95, 0.65 + (positive_signals * 0.08) - (negative_signals * 0.1))
-        verdict = "True" if evidence_strength > 0.6 else "Misleading"
-    elif negative_signals > positive_signals:
-        neg_strength = min(0.95, 0.65 + (negative_signals * 0.1) - (positive_signals * 0.1))
-        evidence_strength = 1.0 - neg_strength
-        verdict = "False"
-    elif neutral_signals > 0:
-        evidence_strength = min(0.55, 0.40 + (neutral_signals * 0.03))
->>>>>>> 50d290bacd7b4057fd14f570fbfe113d99d45843
         verdict = "Unverified"
     else:
         # No evidence found: very low confidence for unverified

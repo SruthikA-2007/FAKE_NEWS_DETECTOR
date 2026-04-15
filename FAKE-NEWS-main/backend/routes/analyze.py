@@ -20,9 +20,15 @@ async def analyze(request: AnalyzeRequest) -> AnalysisResponse:
     try:
         article_text = await parse_article(request)
         if not article_text.strip():
+            if request.type == "url":
+                detail = "Could not extract text from the provided URL. Make sure the link is valid, public, and contains readable article text."
+            elif request.type == "image":
+                detail = "Could not extract text from the provided image payload. Please provide OCR text or use text/url input."
+            else:
+                detail = "The provided text input is empty after parsing."
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The provided content could not be parsed into text.",
+                detail=detail,
             )
 
         extracted_claims = await extract_claims(article_text)

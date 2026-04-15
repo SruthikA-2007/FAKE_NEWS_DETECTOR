@@ -40,7 +40,7 @@ def _extract_text_from_html(html: str) -> str:
     if soup.title and soup.title.string:
         title = soup.title.string.strip()
 
-    # Prefer article-specific blocks before falling back to the whole page.
+    # Prefer article-specific blocks before falling back to broader text nodes.
     candidates = [
         *soup.select("article p"),
         *soup.select("main p"),
@@ -48,16 +48,24 @@ def _extract_text_from_html(html: str) -> str:
     ]
 
     if not candidates:
-        candidates = soup.find_all("p")
+        candidates = [*soup.find_all("p"), *soup.find_all("li"), *soup.find_all("h2")]
 
     paragraphs: list[str] = []
     for node in candidates:
         text = node.get_text(" ", strip=True)
-        if len(text) < 40:
+        if len(text) < 20:
             continue
         paragraphs.append(text)
 
     body = "\n".join(paragraphs)
+
+    # Last-resort fallback for pages that do not use paragraph tags heavily.
+    if len(body) < 80:
+        page_text = soup.get_text(" ", strip=True)
+        page_text = re.sub(r"\s+", " ", page_text).strip()
+        # Keep a bounded amount of text for downstream claim extraction.
+        body = page_text[:12000]
+
     if title and body:
         return f"{title}\n{body}".strip()
     return (body or title).strip()
@@ -80,6 +88,11 @@ async def _parse_url_with_http(url: str) -> str:
             response.raise_for_status()
     except Exception:
         return ""
+
+    content_type = (response.headers.get("content-type") or "").lower()
+    if "text/html" not in content_type and "application/xhtml+xml" not in content_type:
+        raw_text = response.text.strip()
+        return raw_text[:12000]
 
     return _extract_text_from_html(response.text)
 
