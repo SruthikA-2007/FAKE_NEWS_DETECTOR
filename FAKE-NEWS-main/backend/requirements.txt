@@ -10,3 +10,5 @@ python-dotenv>=1.0.1
 beautifulsoup4>=4.12.3
 lxml_html_clean>=0.1.1
 nltk>=3.9.1
+Pillow>=10.0.0
+pytesseract>=0.3.11

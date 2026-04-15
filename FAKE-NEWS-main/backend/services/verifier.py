@@ -77,6 +77,30 @@ def _deduplicate_sources(sources: list[str]) -> list[str]:
     return unique_sources
 
 
+def _interpret_fact_check_rating(text: str) -> tuple[Verdict | None, float]:
+    if not text:
+        return None, 0.0
+
+    lowered = text.lower()
+    if re.search(r"\bpants on fire\b", lowered):
+        return "False", 0.12
+    if re.search(r"\bmostly false\b", lowered):
+        return "False", 0.22
+    if re.search(r"\bfalse\b", lowered) and not re.search(r"\bmostly false\b", lowered):
+        return "False", 0.18
+    if re.search(r"\bmisleading\b", lowered):
+        return "Misleading", 0.45
+    if re.search(r"\bunsubstantiated\b|\bunverified\b|\buntrue\b|\binaccurate\b", lowered):
+        return "False", 0.28
+    if re.search(r"\bmostly true\b", lowered):
+        return "True", 0.82
+    if re.search(r"\btrue\b", lowered) and not re.search(r"\bmostly true\b", lowered):
+        return "True", 0.90
+    if re.search(r"\bcorrect\b|\baccurate\b|\bsupported\b|\bverified\b|\bofficial\b", lowered):
+        return "True", 0.75
+    return None, 0.0
+
+
 def _ai_score_evidence(
     claim: str,
     fact_check_results: list[dict[str, str]],
@@ -152,6 +176,34 @@ def _score_evidence(
     wikipedia_results: list[dict[str, str]],
     news_results: list[dict[str, str]],
 ) -> VerificationResult:
+    # 0. Strong fact-check evidence should override weaker heuristics.
+    explicit_sources: list[str] = []
+    explicit_verdict: Verdict | None = None
+    explicit_confidence = 0.0
+
+    for result in fact_check_results:
+        rating = str(result.get("rating", ""))
+        title = str(result.get("title", ""))
+        verdict, confidence = _interpret_fact_check_rating(rating)
+        if verdict is None:
+            verdict, confidence = _interpret_fact_check_rating(title)
+
+        if verdict:
+            explicit_sources.extend(
+                [result.get("url", ""), f"{result.get('source', 'Fact Check')}: {title or rating}"]
+            )
+            explicit_verdict = verdict
+            explicit_confidence = max(explicit_confidence, confidence)
+            break
+
+    if explicit_verdict:
+        return VerificationResult(
+            verdict=explicit_verdict,
+            confidence=min(explicit_confidence, 0.99),
+            sources=_deduplicate_sources(explicit_sources),
+            reasoning="Based on explicit fact-check ratings from verified sources.",
+        )
+
     # 1. Try AI Scoring first
     ai_res = _ai_score_evidence(claim, fact_check_results, wikipedia_results, news_results)
     if ai_res:
@@ -216,17 +268,16 @@ def _score_evidence(
     verdict: Verdict = "Unverified"
 
     if positive_signals > negative_signals:
-        evidence_strength = min(0.95, 0.65 + (positive_signals * 0.08) - (negative_signals * 0.1))
-        verdict = "True" if evidence_strength > 0.6 else "Misleading"
+        evidence_strength = min(0.95, 0.55 + (positive_signals * 0.12) - (negative_signals * 0.08))
+        verdict = "True" if evidence_strength > 0.65 else "Misleading"
     elif negative_signals > positive_signals:
-        neg_strength = min(0.95, 0.65 + (negative_signals * 0.1) - (positive_signals * 0.1))
-        evidence_strength = 1.0 - neg_strength
+        evidence_strength = max(0.05, min(0.88, 0.20 + (negative_signals * 0.10) - (positive_signals * 0.06)))
         verdict = "False"
     elif neutral_signals > 0:
-        evidence_strength = min(0.55, 0.40 + (neutral_signals * 0.03))
+        evidence_strength = min(0.55, 0.35 + (neutral_signals * 0.04))
         verdict = "Unverified"
     else:
-        evidence_strength = 0.4
+        evidence_strength = 0.35
         verdict = "Unverified"
 
     return VerificationResult(

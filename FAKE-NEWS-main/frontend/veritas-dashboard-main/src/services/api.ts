@@ -60,9 +60,7 @@ export const analyzeContent = async (type: AnalyzeInputType, contentOrFile: stri
       formData.append("type", type);
       formData.append("file", contentOrFile);
 
-      const response = await api.post<AnalyzeResponse>("/analyze", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await api.post<AnalyzeResponse>("/analyze", formData);
 
       return response.data;
     }

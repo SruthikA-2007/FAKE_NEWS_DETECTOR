@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException, status
+import base64
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
 from models.request_model import AnalyzeRequest
 from models.response_model import AnalysisResponse, ClaimResult
@@ -15,8 +17,46 @@ from services.verifier import verify_claim
 router = APIRouter(prefix="/analyze", tags=["analysis"])
 
 
+async def _parse_analyze_request(
+    request: Request,
+    type: str | None = Form(None),
+    content: str | None = Form(None),
+    file: UploadFile | None = File(None),
+) -> AnalyzeRequest:
+    content_type = request.headers.get("content-type", "")
+    if content_type.startswith("multipart/form-data"):
+        if not type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing 'type' field in multipart request.",
+            )
+        if type == "image":
+            if not file:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Image upload requires a file in the 'file' field.",
+                )
+            image_bytes = await file.read()
+            if not image_bytes:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Uploaded image is empty.",
+                )
+            return AnalyzeRequest(type=type, content=base64.b64encode(image_bytes).decode("utf-8"))
+
+        if not content or not content.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Text or URL input requires non-empty 'content'.",
+            )
+        return AnalyzeRequest(type=type, content=content.strip())
+
+    body = await request.json()
+    return AnalyzeRequest.model_validate(body)
+
+
 @router.post("", response_model=AnalysisResponse)
-async def analyze(request: AnalyzeRequest) -> AnalysisResponse:
+async def analyze(request: AnalyzeRequest = Depends(_parse_analyze_request)) -> AnalysisResponse:
     try:
         article_text = await parse_article(request)
         if not article_text.strip():

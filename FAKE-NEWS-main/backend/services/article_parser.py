@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import importlib
+import io
 
 try:
     newspaper_module = importlib.import_module("newspaper")
     Article = getattr(newspaper_module, "Article", None)
 except Exception:  # pragma: no cover - optional dependency fallback
     Article = None
+
+try:
+    from PIL import Image
+    import pytesseract
+except Exception:  # pragma: no cover - optional OCR fallback
+    Image = None
+    pytesseract = None
 
 from models.request_model import AnalyzeRequest
 
@@ -31,11 +40,33 @@ async def _parse_url(url: str) -> str:
 
 
 async def _parse_image(content: str) -> str:
-    return (
-        "OCR placeholder: image text extraction is not implemented yet. "
-        "Pass the image content through an OCR service before verification. "
-        f"Source: {content.strip()}"
-    )
+    try:
+        image_bytes = base64.b64decode(content)
+    except Exception:
+        return (
+            "OCR placeholder: uploaded image could not be decoded. "
+            "Please make sure the file is a valid image."
+        )
+
+    if Image is None or pytesseract is None:
+        return (
+            "OCR placeholder: the server does not have OCR support enabled. "
+            "Install Pillow and pytesseract and ensure Tesseract is available."
+        )
+
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        extracted_text = pytesseract.image_to_string(image, lang="eng")
+        extracted_text = extracted_text.strip()
+        return extracted_text or (
+            "OCR placeholder: the image was processed but no text was detected. "
+            "Try a clearer image or scan of the article."
+        )
+    except Exception:
+        return (
+            "OCR placeholder: failed to extract text from the uploaded image. "
+            "Please verify the image format and try again."
+        )
 
 
 async def parse_article(request: AnalyzeRequest) -> str:
