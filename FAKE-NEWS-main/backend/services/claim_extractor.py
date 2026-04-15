@@ -6,11 +6,18 @@ import logging
 import re
 from typing import Any
 
-import google.generativeai as genai
+import httpx
 
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+FALLBACK_MODELS = [
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash-8b-latest",
+    "gemini-1.5-pro-latest",
+]
 
 
 def _deduplicate_claims(claims: list[str]) -> list[str]:
@@ -31,8 +38,23 @@ def _deduplicate_claims(claims: list[str]) -> list[str]:
 
 
 def _fallback_claim_split(article_text: str) -> list[str]:
+    """
+    Fallback claim extraction using sentence splitting.
+    Filters out very short sentences and prioritizes meaningful claims.
+    """
+    # Split on sentence boundaries
     fragments = re.split(r"(?<=[.!?])\s+", article_text.strip())
-    claims = [fragment.strip() for fragment in fragments if len(fragment.strip()) > 15]
+    claims = []
+    
+    for fragment in fragments:
+        normalized = fragment.strip()
+        # Increased minimum length from 15 to 20 characters for better quality
+        # Skip sentences that are mostly conjunctions or common phrases
+        if (len(normalized) > 20 and 
+            not normalized.lower().startswith(('and ', 'but ', 'or ', 'the ', 'a ')) and
+            normalized.count(' ') >= 2):  # At least 3 words
+            claims.append(normalized)
+    
     return _deduplicate_claims(claims) or ([article_text.strip()] if article_text.strip() else [])
 
 
@@ -64,6 +86,92 @@ def _extract_text(response: Any) -> str:
     return ""
 
 
+def _extract_text_from_api_response(payload: dict[str, Any]) -> str:
+    candidates = payload.get("candidates") or []
+    for candidate in candidates:
+        content = candidate.get("content") or {}
+        parts = content.get("parts") or []
+        for part in parts:
+            part_text = part.get("text")
+            if isinstance(part_text, str) and part_text.strip():
+                return part_text.strip()
+    return ""
+
+
+def _fetch_available_models(api_key: str, timeout_seconds: float) -> list[str]:
+    try:
+        response = httpx.get(
+            f"{GEMINI_API_BASE}/models",
+            params={"key": api_key},
+            timeout=timeout_seconds,
+        )
+        response.raise_for_status()
+    except Exception as exc:
+        logger.warning("Unable to list Gemini models: %s", exc)
+        return []
+
+    data = response.json()
+    result: list[str] = []
+    for model in data.get("models", []):
+        model_name = str(model.get("name", ""))
+        methods = model.get("supportedGenerationMethods") or []
+        if "generateContent" not in methods:
+            continue
+        if not model_name.startswith("models/"):
+            continue
+        cleaned = model_name.split("models/", 1)[1].strip()
+        if cleaned:
+            result.append(cleaned)
+    return result
+
+
+def _build_candidate_models(configured_model: str, available_models: list[str]) -> list[str]:
+    preferred_available = [
+        model
+        for model in available_models
+        if "gemini" in model.lower() and ("flash" in model.lower() or "pro" in model.lower())
+    ]
+    model_candidates = [configured_model.strip(), *FALLBACK_MODELS, *preferred_available]
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for model_name in model_candidates:
+        normalized = model_name.strip()
+        if not normalized:
+            continue
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(normalized)
+    return deduped
+
+
+def _request_claim_extraction(
+    *,
+    api_key: str,
+    model_name: str,
+    prompt: str,
+    timeout_seconds: float,
+) -> str:
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    response = httpx.post(
+        f"{GEMINI_API_BASE}/models/{model_name}:generateContent",
+        params={"key": api_key},
+        json=payload,
+        timeout=timeout_seconds,
+    )
+    response.raise_for_status()
+    return _extract_text_from_api_response(response.json())
+
+
 async def extract_claims(article_text: str) -> list[str]:
     cleaned_article = article_text.strip()
     if not cleaned_article:
@@ -73,8 +181,6 @@ async def extract_claims(article_text: str) -> list[str]:
         return _fallback_claim_split(cleaned_article)
 
     def _generate_claims() -> list[str]:
-        genai.configure(api_key=settings.gemini_api_key)
-        model = genai.GenerativeModel(settings.gemini_model)
         prompt = (
             "You are a fact-checking assistant. Split the following article into independent factual claims only. "
             "Ignore opinions, speculation, headings, and repeated statements. "
@@ -82,29 +188,43 @@ async def extract_claims(article_text: str) -> list[str]:
             f"Article:\n{cleaned_article}"
         )
 
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.1,
-                "response_mime_type": "application/json",
-            },
-        )
-        response_text = _extract_text(response)
-        if not response_text:
-            return []
+        available_models = _fetch_available_models(settings.gemini_api_key, settings.request_timeout_seconds)
+        candidate_models = _build_candidate_models(settings.gemini_model, available_models)
 
-        try:
-            parsed = json.loads(response_text)
-        except json.JSONDecodeError:
-            match = re.search(r"\[[\s\S]*\]", response_text)
-            if not match:
-                return []
+        for model_name in candidate_models:
             try:
-                parsed = json.loads(match.group(0))
-            except json.JSONDecodeError:
-                return []
+                response_text = _request_claim_extraction(
+                    api_key=settings.gemini_api_key,
+                    model_name=model_name,
+                    prompt=prompt,
+                    timeout_seconds=settings.request_timeout_seconds,
+                )
+                if not response_text:
+                    continue
+                try:
+                    parsed = json.loads(response_text)
+                except json.JSONDecodeError:
+                    match = re.search(r"\[[\s\S]*\]", response_text)
+                    if not match:
+                        continue
+                    try:
+                        parsed = json.loads(match.group(0))
+                    except json.JSONDecodeError:
+                        continue
 
-        return _deduplicate_claims(_parse_json_claims(parsed))
+                claims = _deduplicate_claims(_parse_json_claims(parsed))
+                if claims:
+                    return claims
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in {400, 404}:
+                    logger.debug("Gemini model %s unavailable, trying next model.", model_name)
+                    continue
+                logger.info("Gemini request failed for model %s: %s", model_name, exc)
+            except Exception as exc:
+                logger.info("Gemini claim extraction failed for model %s: %s", model_name, exc)
+
+        logger.warning("Gemini claim extraction unavailable for all candidate models, using fallback splitter.")
+        return []
 
     try:
         claims = await asyncio.to_thread(_generate_claims)
