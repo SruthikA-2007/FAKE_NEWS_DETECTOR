@@ -7,6 +7,7 @@ import PipelineLoader from "@/components/PipelineLoader";
 import CredibilityGauge from "@/components/CredibilityGauge";
 import BentoClaimCards from "@/components/BentoClaimCards";
 import EntityHighlighter from "@/components/EntityHighlighter";
+import SourceVerification from "@/components/SourceVerification";
 import { analyzeContent, type AnalyzeClaim, type AnalyzeInputType, type Entity } from "@/services/api";
 
 type Phase = "input" | "loading" | "results";
@@ -24,6 +25,9 @@ const Index = () => {
   const [claimsData, setClaimsData] = useState<AnalyzeClaim[]>([]);
   const [articleText, setArticleText] = useState<string>("");
   const [entitiesData, setEntitiesData] = useState<Entity[]>([]);
+  const [verificationSummary, setVerificationSummary] = useState<string>("");
+  const [matchedArticles, setMatchedArticles] = useState<any[]>([]);
+  const [credibilityLevel, setCredibilityLevel] = useState<string>("unverified");
 
   const handleAnalyze = useCallback(async (payload: AnalyzePayload) => {
     setError(null);
@@ -36,6 +40,9 @@ const Index = () => {
       setClaimsData(response.claims);
       setArticleText(response.article_text);
       setEntitiesData(response.entities);
+      setVerificationSummary(response.verification_summary);
+      setMatchedArticles(response.matched_articles);
+      setCredibilityLevel(response.credibility_level);
       setPhase("results");
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Analysis failed.";
@@ -54,6 +61,9 @@ const Index = () => {
     setClaimsData([]);
     setArticleText("");
     setEntitiesData([]);
+    setVerificationSummary("");
+    setMatchedArticles([]);
+    setCredibilityLevel("unverified");
   }, []);
 
   return (
@@ -61,7 +71,7 @@ const Index = () => {
       <MeshBackground />
       <Navbar />
 
-      <main className="container mx-auto max-w-4xl px-4 py-10 space-y-8">
+      <main className="container mx-auto max-w-5xl px-4 py-10 space-y-8">
         <AnimatePresence mode="wait">
           {phase === "input" && (
             <motion.div
@@ -77,7 +87,7 @@ const Index = () => {
                   Fake News <span className="text-gradient-red">Detector</span>
                 </h1>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  AI-powered credibility analysis in real time
+                  AI-powered credibility analysis with corroborating source verification
                 </p>
               </div>
               <InputSwitcher onAnalyze={handleAnalyze} />
@@ -118,11 +128,40 @@ const Index = () => {
                   New Analysis
                 </button>
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CredibilityGauge score={overallScore} />
-                <EntityHighlighter text={articleText} entities={entitiesData} />
+
+              {/* Credibility Score and Gauge */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <CredibilityGauge score={overallScore} />
+                </div>
+                <div className="glass border border-border/50 p-6 rounded-lg space-y-3">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                    Credibility Level
+                  </h3>
+                  <div className="text-2xl font-bold text-foreground capitalize">
+                    {credibilityLevel.replace(/_/g, " ")}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Based on corroborating sources from trusted news outlets and fact-checkers
+                  </p>
+                </div>
               </div>
-              <BentoClaimCards claims={claimsData} />
+
+              {/* Entity Highlighting */}
+              {entitiesData.length > 0 && (
+                <EntityHighlighter text={articleText} entities={entitiesData} />
+              )}
+
+              {/* Source Verification and Matched Articles */}
+              <SourceVerification
+                matched_articles={matchedArticles}
+                verification_summary={verificationSummary}
+              />
+
+              {/* Claims Detail (if any) */}
+              {claimsData.length > 0 && (
+                <BentoClaimCards claims={claimsData} />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     factcheck_api_key: str = ""
     news_api_key: str = ""
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-1.5-flash-latest"
     request_timeout_seconds: float = 15.0
 
 

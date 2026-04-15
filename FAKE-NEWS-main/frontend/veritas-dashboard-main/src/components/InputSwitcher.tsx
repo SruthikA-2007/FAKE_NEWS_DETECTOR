@@ -50,12 +50,20 @@ const InputSwitcher = ({ onAnalyze }: InputSwitcherProps) => {
 
   const handleAnalyze = useCallback(() => {
     if (active === "text") {
-      onAnalyze({ type: "text", contentOrFile: textValue });
+      const content = textValue.trim();
+      if (!content) {
+        return;
+      }
+      onAnalyze({ type: "text", contentOrFile: content });
       return;
     }
 
     if (active === "url") {
-      onAnalyze({ type: "url", contentOrFile: urlValue });
+      const content = urlValue.trim();
+      if (!content) {
+        return;
+      }
+      onAnalyze({ type: "url", contentOrFile: content });
       return;
     }
 
@@ -63,6 +71,11 @@ const InputSwitcher = ({ onAnalyze }: InputSwitcherProps) => {
       onAnalyze({ type: "image", contentOrFile: selectedFile });
     }
   }, [active, onAnalyze, selectedFile, textValue, urlValue]);
+
+  const isAnalyzeDisabled =
+    (active === "text" && !textValue.trim()) ||
+    (active === "url" && !urlValue.trim()) ||
+    (active === "image" && !selectedFile);
 
   return (
     <div className="glass p-6 space-y-5">
@@ -141,6 +154,7 @@ const InputSwitcher = ({ onAnalyze }: InputSwitcherProps) => {
 
       <button
         onClick={handleAnalyze}
+        disabled={isAnalyzeDisabled}
         className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary/90 hover:shadow-[0_0_20px_hsl(0_72%_51%/0.3)]"
       >
         <Search className="h-4 w-4" />
