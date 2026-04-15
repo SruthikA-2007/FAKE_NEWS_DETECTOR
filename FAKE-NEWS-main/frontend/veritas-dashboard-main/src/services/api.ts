@@ -6,12 +6,24 @@ const api = axios.create({
 });
 
 export type AnalyzeInputType = "text" | "url" | "image";
+export type CredibilityLevel = "very_likely_false" | "possibly_false" | "unverified" | "partially_true" | "mostly_true" | "very_likely_true";
 
 export interface AnalyzeClaim {
   text: string;
   verdict: string;
   confidence: number;
   sources: string[];
+  reasoning?: string;
+}
+
+export interface MatchedArticle {
+  title: string;
+  source: string;
+  url: string;
+  description?: string;
+  snippet?: string;
+  match_score: number;
+  verdict_alignment: "supporting" | "contradicting" | "neutral";
 }
 
 export interface Entity {
@@ -22,8 +34,11 @@ export interface Entity {
 export interface AnalyzeResponse {
   claims: AnalyzeClaim[];
   overall_score: number;
+  credibility_level: CredibilityLevel;
   article_text: string;
   entities: Entity[];
+  matched_articles: MatchedArticle[];
+  verification_summary: string;
 }
 
 const getFriendlyErrorMessage = (error: unknown) => {

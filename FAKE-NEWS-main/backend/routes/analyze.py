@@ -7,10 +7,9 @@ from fastapi import APIRouter, HTTPException, status
 from models.request_model import AnalyzeRequest
 from models.response_model import AnalysisResponse, ClaimResult
 from services.article_parser import parse_article
-from services.claim_extractor import extract_claims
+from services.context_verifier import find_corroborating_sources
 from services.ner_processor import extract_entities
 from services.scorer import calculate_overall_score
-from services.verifier import verify_claim
 
 router = APIRouter(prefix="/analyze", tags=["analysis"])
 
@@ -31,33 +30,51 @@ async def analyze(request: AnalyzeRequest) -> AnalysisResponse:
                 detail=detail,
             )
 
-        extracted_claims = await extract_claims(article_text)
-        if not extracted_claims:
-            extracted_claims = [article_text.strip()]
-
+        # Extract entities for context-based verification
         article_entities = await extract_entities(article_text)
-        entities_per_claim = await asyncio.gather(*(extract_entities(claim) for claim in extracted_claims))
-        verification_results = await asyncio.gather(
-            *(verify_claim(claim, entities) for claim, entities in zip(extracted_claims, entities_per_claim))
+
+        # Use context-based verification instead of claim extraction
+        matched_articles, verification_summary, verdict, confidence = await find_corroborating_sources(
+            article_text,
+            article_entities,
         )
 
-        claim_results = [
-            ClaimResult(
-                text=claim,
-                verdict=result.verdict,
-                confidence=result.confidence,
-                sources=result.sources,
-                reasoning=result.reasoning,
-            )
-            for claim, result in zip(extracted_claims, verification_results)
-        ]
+        # Create single claim result for the full article
+        claim_result = ClaimResult(
+            text=article_text[:500] + ("..." if len(article_text) > 500 else ""),
+            verdict=verdict,
+            confidence=confidence,
+            sources=[article.url for article in matched_articles if article.url],
+            reasoning=verification_summary,
+        )
 
-        overall_score = calculate_overall_score(claim_results)
+        # Calculate overall score based on verification result
+        overall_score = calculate_overall_score([claim_result])
+
+        # Determine credibility level
+        credibility_mapping = {
+            0: "very_likely_false",
+            10: "very_likely_false",
+            20: "possibly_false",
+            35: "possibly_false",
+            50: "unverified",
+            65: "partially_true",
+            80: "mostly_true",
+            100: "very_likely_true",
+        }
+        credibility_level = "unverified"
+        for threshold in sorted(credibility_mapping.keys()):
+            if overall_score >= threshold:
+                credibility_level = credibility_mapping[threshold]
+
         return AnalysisResponse(
-            claims=claim_results,
+            claims=[claim_result],
             overall_score=overall_score,
+            credibility_level=credibility_level,
             article_text=article_text.strip(),
             entities=article_entities,
+            matched_articles=matched_articles,
+            verification_summary=verification_summary,
         )
     except HTTPException:
         raise
