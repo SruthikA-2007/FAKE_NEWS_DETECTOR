@@ -11,6 +11,7 @@ class ClaimResult(BaseModel):
     verdict: Verdict
     confidence: float = Field(ge=0.0, le=1.0)
     sources: list[str] = Field(default_factory=list)
+    reasoning: str | None = None
 
 
 class AnalysisResponse(BaseModel):
