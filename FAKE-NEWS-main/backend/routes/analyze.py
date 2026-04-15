@@ -41,6 +41,7 @@ async def analyze(request: AnalyzeRequest) -> AnalysisResponse:
                 verdict=result.verdict,
                 confidence=result.confidence,
                 sources=result.sources,
+                reasoning=result.reasoning,
             )
             for claim, result in zip(extracted_claims, verification_results)
         ]
